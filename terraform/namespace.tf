@@ -7,5 +7,5 @@ resource "kubernetes_namespace_v1" "oficina" {
     }
   }
 
-  depends_on = [module.eks]
+  depends_on = [aws_eks_node_group.padrao]
 }

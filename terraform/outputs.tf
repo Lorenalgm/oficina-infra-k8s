@@ -1,16 +1,16 @@
 output "cluster_name" {
   description = "Nome do cluster EKS."
-  value       = module.eks.cluster_name
+  value       = aws_eks_cluster.este.name
 }
 
 output "cluster_endpoint" {
   description = "Endpoint da API do Kubernetes."
-  value       = module.eks.cluster_endpoint
+  value       = aws_eks_cluster.este.endpoint
 }
 
 output "node_security_group_id" {
   description = "Security group dos nodes."
-  value       = module.eks.node_security_group_id
+  value       = aws_eks_cluster.este.vpc_config[0].cluster_security_group_id
 }
 
 output "namespace" {
@@ -20,7 +20,7 @@ output "namespace" {
 
 output "kubeconfig_comando" {
   description = "Comando que registra o cluster no kubeconfig local."
-  value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
+  value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${aws_eks_cluster.este.name}"
 }
 
 output "backend_base_url_comando" {
