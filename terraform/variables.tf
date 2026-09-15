@@ -71,3 +71,13 @@ variable "new_relic_cluster_name" {
   type        = string
   default     = "oficina-eks"
 }
+
+variable "cluster_admin_role_arn" {
+  description = <<-DOC
+    ARN da role que recebe acesso admin ao cluster. Vazio (padrão) deriva da
+    sessão que roda o apply — no Learner Lab, a `voclabs`. Preencha quando o
+    apply rodar sob uma identidade diferente da que precisa administrar o EKS.
+  DOC
+  type        = string
+  default     = ""
+}
