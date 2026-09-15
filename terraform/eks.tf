@@ -2,6 +2,27 @@ data "aws_iam_role" "lab" {
   name = var.iam_role_name
 }
 
+data "aws_caller_identity" "atual" {}
+
+locals {
+  # O módulo do EKS resolve o principal do criador do cluster chamando
+  # iam:GetRole, que o Learner Lab nega explicitamente (ver ADR-004). Por isso
+  # `enable_cluster_creator_admin_permissions` fica desligado e o access entry
+  # é declarado à mão, com o ARN derivado da própria sessão:
+  #   arn:aws:sts::<conta>:assumed-role/<role>/<sessao>
+  #   -> arn:aws:iam::<conta>:role/<role>
+  sessao = try(
+    regex("^arn:aws:sts::(?P<conta>[0-9]+):assumed-role/(?P<role>[^/]+)/", data.aws_caller_identity.atual.arn),
+    null
+  )
+
+  admin_do_cluster = coalesce(
+    var.cluster_admin_role_arn != "" ? var.cluster_admin_role_arn : null,
+    local.sessao != null ? "arn:aws:iam::${local.sessao.conta}:role/${local.sessao.role}" : null,
+    data.aws_caller_identity.atual.arn,
+  )
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.24"
@@ -17,7 +38,22 @@ module "eks" {
   cluster_endpoint_public_access = true
 
   # Dá ao usuário que roda o apply acesso admin ao cluster via access entry.
-  enable_cluster_creator_admin_permissions = true
+  # Declarado explicitamente porque a resolução automática do módulo depende de
+  # iam:GetRole (ver o local `admin_do_cluster` acima).
+  enable_cluster_creator_admin_permissions = false
+
+  access_entries = {
+    criador = {
+      principal_arn = local.admin_do_cluster
+
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    }
+  }
 
   # --- Restrições do AWS Academy Learner Lab ---------------------------------
   # Sem criação de IAM role e sem chave KMS própria; os logs do control plane
