@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        stack: [terraform, kind]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Formatação
+        run: terraform -chdir=${{ matrix.stack }} fmt -check -recursive
+
+      # -backend=false: valida a sintaxe sem precisar das credenciais da AWS.
+      - name: Init sem backend
+        run: terraform -chdir=${{ matrix.stack }} init -backend=false -input=false
+
+      - name: Validate
+        run: terraform -chdir=${{ matrix.stack }} validate

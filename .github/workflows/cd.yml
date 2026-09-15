@@ -1,0 +1,55 @@
+name: CD
+
+on:
+  push:
+    branches: [main, develop]
+
+concurrency: deploy-${{ github.ref_name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Credenciais do AWS Academy Learner Lab são temporárias e exigem o
+          # token de sessão. Atualize os três secrets a cada sessão.
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TFSTATE_BUCKET }}" \
+            -backend-config="region=${{ vars.AWS_REGION || 'us-east-1' }}" \
+            -backend-config="dynamodb_table=${{ secrets.TFSTATE_LOCK_TABLE }}"
+
+      - name: Terraform apply
+        working-directory: terraform
+        env:
+          TF_VAR_new_relic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var="tfstate_bucket=${{ secrets.TFSTATE_BUCKET }}"
+
+      - name: Aguarda o agente do New Relic
+        working-directory: terraform
+        run: |
+          aws eks update-kubeconfig \
+            --region "${{ vars.AWS_REGION || 'us-east-1' }}" \
+            --name "$(terraform output -raw cluster_name)"
+          kubectl -n newrelic rollout status daemonset/newrelic-bundle-nrk8s-kubelet --timeout=300s
+
+      - name: URL do ingress
+        run: |
+          # Alimenta a variável backend_base_url do repositório oficina-auth-lambda.
+          kubectl -n ingress-nginx get svc ingress-nginx-controller \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'; echo

@@ -1,0 +1,17 @@
+# Copie para terraform.tfvars (git-ignored) e preencha com valores reais.
+# NUNCA versione o terraform.tfvars com valores reais.
+
+# APP_KEY do Laravel — gere com:  php artisan key:generate --show
+app_key = "base64:COLE_SUA_APP_KEY_AQUI"
+
+# Senha do banco Postgres (qualquer valor forte)
+db_password = "troque-esta-senha"
+
+# Token do serviço externo Resend (opcional; deixe "" se não for enviar e-mail)
+resend_api_key = ""
+
+# Segredo HS256 compartilhado com a Lambda de autenticacao.
+jwt_secret = "segredo-local-de-desenvolvimento"
+
+# Vazio nao instala o agente do New Relic no kind.
+new_relic_license_key = ""
