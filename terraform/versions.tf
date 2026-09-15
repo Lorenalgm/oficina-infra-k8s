@@ -46,19 +46,19 @@ data "terraform_remote_state" "db" {
 
 # Token de curta duração do EKS: dispensa guardar kubeconfig no state.
 data "aws_eks_cluster_auth" "este" {
-  name = module.eks.cluster_name
+  name = aws_eks_cluster.este.name
 }
 
 provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  host                   = aws_eks_cluster.este.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.este.certificate_authority[0].data)
   token                  = data.aws_eks_cluster_auth.este.token
 }
 
 provider "helm" {
   kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    host                   = aws_eks_cluster.este.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.este.certificate_authority[0].data)
     token                  = data.aws_eks_cluster_auth.este.token
   }
 }

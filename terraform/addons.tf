@@ -6,7 +6,7 @@ resource "helm_release" "metrics_server" {
   namespace  = "kube-system"
   version    = "3.12.2"
 
-  depends_on = [module.eks]
+  depends_on = [aws_eks_node_group.padrao]
 }
 
 # ingress-nginx expõe a API por um Network Load Balancer; é a URL que o
@@ -36,5 +36,5 @@ resource "helm_release" "ingress_nginx" {
     value = "internet-facing"
   }
 
-  depends_on = [module.eks]
+  depends_on = [aws_eks_node_group.padrao]
 }
