@@ -1,0 +1,110 @@
+# Declara a topologia do contrato de mensagens (oficina-api/docs/fase4/
+# contrato-mensagens.md) pela API HTTP do RabbitMQ: usuários por serviço,
+# permissões, exchanges, filas de trabalho, retry e DLQ.
+# Idempotente: pode rodar a cada apply (as chamadas são PUT/POST de upsert).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-topologia
+  namespace: oficina
+  labels:
+    app.kubernetes.io/name: rabbitmq-topologia
+data:
+  topologia.sh: |
+    #!/bin/sh
+    set -eu
+
+    API="http://rabbitmq:15672/api"
+    VHOST="oficina"
+    AUTH="$RABBITMQ_ADMIN_USER:$RABBITMQ_ADMIN_PASSWORD"
+
+    chamar() {
+      metodo="$1"; caminho="$2"; corpo="$3"
+      curl -fsS -o /dev/null -u "$AUTH" -H "content-type: application/json" \
+        -X "$metodo" "$API/$caminho" -d "$corpo"
+    }
+
+    echo "Aguardando a API do RabbitMQ..."
+    until curl -fsS -o /dev/null -u "$AUTH" "$API/overview"; do sleep 3; done
+
+    chamar PUT "vhosts/$VHOST" '{}'
+
+    # Usuário por serviço: publica nos exchanges da Saga e lê só a própria fila.
+    usuario() {
+      nome="$1"; senha="$2"; fila="$3"
+      chamar PUT "users/$nome" "{\"password\":\"$senha\",\"tags\":\"\"}"
+      chamar PUT "permissions/$VHOST/$nome" \
+        "{\"configure\":\"^\$\",\"write\":\"^oficina(\\\\.retry)?\$\",\"read\":\"^$fila\$\"}"
+    }
+    usuario os       "$RABBITMQ_OS_PASSWORD"       'os\\.saga\\.eventos'
+    usuario billing  "$RABBITMQ_BILLING_PASSWORD"  'billing\\.comandos'
+    usuario execucao "$RABBITMQ_EXECUCAO_PASSWORD" 'execucao\\.comandos'
+
+    chamar PUT "exchanges/$VHOST/oficina"       '{"type":"topic","durable":true}'
+    chamar PUT "exchanges/$VHOST/oficina.retry" '{"type":"direct","durable":true}'
+    chamar PUT "exchanges/$VHOST/oficina.dlx"   '{"type":"direct","durable":true}'
+
+    # fila  ->  ligações no exchange "oficina"
+    fila() {
+      nome="$1"; shift
+
+      # Fila de trabalho: rejeição definitiva (nack sem requeue) vai para a DLQ.
+      chamar PUT "queues/$VHOST/$nome" \
+        "{\"durable\":true,\"arguments\":{\"x-dead-letter-exchange\":\"oficina.dlx\",\"x-dead-letter-routing-key\":\"$nome\"}}"
+
+      # Retry: espera 5 s e volta para a fila de trabalho pelo exchange padrão.
+      chamar PUT "queues/$VHOST/$nome.retry" \
+        "{\"durable\":true,\"arguments\":{\"x-message-ttl\":5000,\"x-dead-letter-exchange\":\"\",\"x-dead-letter-routing-key\":\"$nome\"}}"
+      chamar POST "bindings/$VHOST/e/oficina.retry/q/$nome.retry" "{\"routing_key\":\"$nome\"}"
+
+      chamar PUT "queues/$VHOST/$nome.dlq" '{"durable":true}'
+      chamar POST "bindings/$VHOST/e/oficina.dlx/q/$nome.dlq" "{\"routing_key\":\"$nome\"}"
+
+      for chave in "$@"; do
+        chamar POST "bindings/$VHOST/e/oficina/q/$nome" "{\"routing_key\":\"$chave\"}"
+      done
+      echo "fila $nome pronta"
+    }
+    fila billing.comandos  'billing.cmd.#'
+    fila execucao.comandos 'execucao.cmd.#'
+    fila os.saga.eventos   'billing.evt.#' 'execucao.evt.#'
+
+    echo "Topologia aplicada."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rabbitmq-topologia
+  namespace: oficina
+  labels:
+    app.kubernetes.io/name: rabbitmq-topologia
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq-topologia
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: topologia
+          image: curlimages/curl:8.11.1
+          command: ["sh", "/scripts/topologia.sh"]
+          envFrom:
+            - secretRef:
+                name: plataforma-secrets
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: rabbitmq-topologia
