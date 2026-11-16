@@ -7,3 +7,4 @@ namespace: oficina
 resources:
   - rabbitmq.yaml
   - rabbitmq-topologia.yaml
+  - mongodb.yaml
