@@ -141,3 +141,32 @@ resource "aws_security_group_rule" "nodes_para_rds" {
   security_group_id        = data.terraform_remote_state.db.outputs.db_sg_id
   source_security_group_id = aws_eks_cluster.este.vpc_config[0].cluster_security_group_id
 }
+
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name = aws_eks_cluster.este.name
+  addon_name   = "aws-ebs-csi-driver"
+
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [aws_eks_node_group.padrao]
+}
+
+resource "kubernetes_storage_class_v1" "gp3" {
+  metadata {
+    name = "gp3"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "true"
+    }
+  }
+
+  storage_provisioner    = "ebs.csi.aws.com"
+  reclaim_policy         = "Delete"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  allow_volume_expansion = true
+  parameters = {
+    type = "gp3"
+  }
+
+  depends_on = [aws_eks_addon.ebs_csi]
+}

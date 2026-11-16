@@ -48,6 +48,25 @@ jobs:
             --name "$(terraform output -raw cluster_name)"
           kubectl -n newrelic rollout status daemonset/newrelic-bundle-nrk8s-kubelet --timeout=300s
 
+      - name: Plataforma da Fase 4 (RabbitMQ e MongoDB)
+        run: |
+          if ! kubectl -n oficina get secret plataforma-secrets >/dev/null 2>&1; then
+            senha() { openssl rand -hex 16; }
+            kubectl -n oficina create secret generic plataforma-secrets \
+              --from-literal=RABBITMQ_ADMIN_USER=admin \
+              --from-literal=RABBITMQ_ADMIN_PASSWORD="$(senha)" \
+              --from-literal=RABBITMQ_OS_PASSWORD="$(senha)" \
+              --from-literal=RABBITMQ_BILLING_PASSWORD="$(senha)" \
+              --from-literal=RABBITMQ_EXECUCAO_PASSWORD="$(senha)" \
+              --from-literal=MONGO_ROOT_PASSWORD="$(senha)" \
+              --from-literal=MONGO_EXECUCAO_PASSWORD="$(senha)"
+          fi
+          kubectl -n oficina delete job rabbitmq-topologia --ignore-not-found
+          kubectl apply -k plataforma
+          kubectl -n oficina rollout status statefulset/rabbitmq --timeout=300s
+          kubectl -n oficina rollout status statefulset/mongodb --timeout=300s
+          kubectl -n oficina wait --for=condition=complete job/rabbitmq-topologia --timeout=300s
+
       - name: URL do ingress
         run: |
           # Alimenta a variável backend_base_url do repositório oficina-auth-lambda.
