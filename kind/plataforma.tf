@@ -1,9 +1,3 @@
-# Plataforma da Fase 4 — RabbitMQ (broker da Saga) e MongoDB (banco do
-# Execução Service), compartilhados pelos três microsserviços.
-#
-# Mesma abordagem do Postgres: os manifestos em ../plataforma são a fonte
-# única, usados também no caminho "kubectl puro" e no EKS.
-
 resource "kubernetes_secret_v1" "plataforma" {
   metadata {
     name      = "plataforma-secrets"
@@ -41,7 +35,6 @@ resource "null_resource" "plataforma" {
     command = <<-EOT
       set -e
       K="kubectl --kubeconfig ${kind_cluster.this.kubeconfig_path} -n ${var.namespace}"
-      # O Job é imutável: recria para reaplicar a topologia a cada mudança.
       $K delete job rabbitmq-topologia --ignore-not-found
       $K apply -k "${path.module}/../plataforma"
       $K rollout status statefulset/rabbitmq --timeout=240s
