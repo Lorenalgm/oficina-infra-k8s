@@ -58,3 +58,28 @@ variable "new_relic_license_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "plataforma_senhas" {
+  description = <<-DOC
+    Senhas do RabbitMQ (admin e um usuário por microsserviço) e do MongoDB.
+    Os defaults servem só ao cluster local; os serviços usam os mesmos valores
+    nos seus Secrets de desenvolvimento.
+  DOC
+  type = object({
+    rabbitmq_admin    = string
+    rabbitmq_os       = string
+    rabbitmq_billing  = string
+    rabbitmq_execucao = string
+    mongo_root        = string
+    mongo_execucao    = string
+  })
+  sensitive = true
+  default = {
+    rabbitmq_admin    = "local-admin"
+    rabbitmq_os       = "local-os"
+    rabbitmq_billing  = "local-billing"
+    rabbitmq_execucao = "local-execucao"
+    mongo_root        = "local-root"
+    mongo_execucao    = "local-execucao"
+  }
+}
