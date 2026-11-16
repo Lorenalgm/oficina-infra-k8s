@@ -1,7 +1,3 @@
-# Declara a topologia do contrato de mensagens (oficina-api/docs/fase4/
-# contrato-mensagens.md) pela API HTTP do RabbitMQ: usuários por serviço,
-# permissões, exchanges, filas de trabalho, retry e DLQ.
-# Idempotente: pode rodar a cada apply (as chamadas são PUT/POST de upsert).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -29,7 +25,6 @@ data:
 
     chamar PUT "vhosts/$VHOST" '{}'
 
-    # Usuário por serviço: publica nos exchanges da Saga e lê só a própria fila.
     usuario() {
       nome="$1"; senha="$2"; fila="$3"
       chamar PUT "users/$nome" "{\"password\":\"$senha\",\"tags\":\"\"}"
@@ -44,15 +39,12 @@ data:
     chamar PUT "exchanges/$VHOST/oficina.retry" '{"type":"direct","durable":true}'
     chamar PUT "exchanges/$VHOST/oficina.dlx"   '{"type":"direct","durable":true}'
 
-    # fila  ->  ligações no exchange "oficina"
     fila() {
       nome="$1"; shift
 
-      # Fila de trabalho: rejeição definitiva (nack sem requeue) vai para a DLQ.
       chamar PUT "queues/$VHOST/$nome" \
         "{\"durable\":true,\"arguments\":{\"x-dead-letter-exchange\":\"oficina.dlx\",\"x-dead-letter-routing-key\":\"$nome\"}}"
 
-      # Retry: espera 5 s e volta para a fila de trabalho pelo exchange padrão.
       chamar PUT "queues/$VHOST/$nome.retry" \
         "{\"durable\":true,\"arguments\":{\"x-message-ttl\":5000,\"x-dead-letter-exchange\":\"\",\"x-dead-letter-routing-key\":\"$nome\"}}"
       chamar POST "bindings/$VHOST/e/oficina.retry/q/$nome.retry" "{\"routing_key\":\"$nome\"}"

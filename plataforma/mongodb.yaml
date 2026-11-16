@@ -1,7 +1,3 @@
-# MongoDB — banco NoSQL do Execução Service.
-# Nó único: a outbox e o controle de idempotência ficam dentro do próprio
-# documento da execução, então não há transação multi-documento (que exigiria
-# replica set).
 apiVersion: v1
 kind: ConfigMap
 metadata:

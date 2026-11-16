@@ -1,6 +1,4 @@
-# Plataforma compartilhada pelos microsserviços da Fase 4: broker e banco NoSQL.
-# Pré-requisito: Secret plataforma-secrets no namespace oficina
-# (criado pelo Terraform; ver secret.example.yaml para o caminho manual).
+# Requer o Secret plataforma-secrets no namespace oficina (ver secret.example.yaml).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: oficina
