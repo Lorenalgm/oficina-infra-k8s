@@ -25,6 +25,31 @@ Dois ambientes com a mesma estrutura, para que os manifestos da API
 |---|---|---|
 | ☁️ **Nuvem** | `terraform/` | Cluster EKS, Ingress com Load Balancer, metrics-server e agente do New Relic |
 | 💻 **Local** | `kind/` | Cluster kind com Postgres, para desenvolver sem custo |
+| 🧩 **Plataforma (Fase 4)** | `plataforma/` | RabbitMQ e MongoDB compartilhados pelos microsserviços, aplicados pelo `kind/` |
+
+### Plataforma dos microsserviços
+
+| Componente | Para quê | Acesso no cluster |
+|---|---|---|
+| RabbitMQ 4.1 | Mensageria da Saga entre OS, Billing e Execução | `rabbitmq:5672` (AMQP), `rabbitmq:15672` (painel), `rabbitmq:15692` (métricas) |
+| Job `rabbitmq-topologia` | Cria o vhost `oficina`, um usuário por serviço, exchanges, filas, retry e DLQ do [contrato de mensagens](https://github.com/Lorenalgm/oficina_mecanica/blob/main/docs/fase4/contrato-mensagens.md) | — |
+| MongoDB 8 | Banco NoSQL do Execução Service (database `execucao`) | `mongodb:27017` |
+
+Cada serviço tem um usuário próprio no RabbitMQ: publica só nos exchanges
+`oficina` e `oficina.retry` e lê só a própria fila (`billing.comandos`,
+`execucao.comandos` ou `os.saga.eventos`). As senhas ficam no Secret
+`plataforma-secrets`, criado pelo Terraform (ou à mão, a partir de
+`plataforma/secret.example.yaml`).
+
+Painel do RabbitMQ no kind:
+
+```bash
+kubectl -n oficina port-forward svc/rabbitmq 15672:15672   # http://localhost:15672 (admin / local-admin)
+```
+
+> No EKS, os volumes do RabbitMQ e do MongoDB precisam do addon
+> `aws-ebs-csi-driver`. Ele entra quando a infraestrutura na AWS for recriada
+> para o deploy da Fase 4.
 
 ## Arquitetura
 
@@ -107,7 +132,7 @@ adotada porque o agente PHP do New Relic não funciona com o FrankenPHP
 
 ```bash
 cp kind/terraform.tfvars.example kind/terraform.tfvars   # preencha app_key e db_password
-make local-up
+make local-up   # cluster, Postgres, metrics-server, RabbitMQ e MongoDB
 
 kubectl apply -k ../oficina_mecanica/k8s/
 kubectl -n oficina rollout status deployment/oficina-api
