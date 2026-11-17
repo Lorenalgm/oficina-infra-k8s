@@ -7,7 +7,7 @@ Terraform do **cluster Kubernetes** da Oficina Mecânica
 
 | O quê | Link |
 |---|---|
-| 🚪 API em produção (API Gateway) | https://q7m1gn8vqi.execute-api.us-east-1.amazonaws.com |
+| 🚪 API em produção (API Gateway) | https://eme31yzdx6.execute-api.us-east-1.amazonaws.com |
 | 🌐 Entrada do cluster (Load Balancer) | http://abd93cc27160b4d95b9d44139f6c8694-a7ed22eddfa6f5f5.elb.us-east-1.amazonaws.com |
 | ⚙️ Código da API | [oficina_mecanica](https://github.com/Lorenalgm/oficina_mecanica) |
 | 🔐 Autenticação | [oficina-auth-lambda](https://github.com/Lorenalgm/oficina-auth-lambda) |
