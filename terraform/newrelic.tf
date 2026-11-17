@@ -48,5 +48,10 @@ resource "helm_release" "newrelic" {
     value = "true"
   }
 
+  set {
+    name  = "nri-metadata-injection.enabled"
+    value = "false"
+  }
+
   depends_on = [aws_eks_node_group.padrao]
 }

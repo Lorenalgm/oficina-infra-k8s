@@ -161,6 +161,8 @@ resource "aws_eks_addon" "ebs_csi" {
   cluster_name = aws_eks_cluster.este.name
   addon_name   = "aws-ebs-csi-driver"
 
+  configuration_values = jsonencode({ controller = { replicaCount = 1 } })
+
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
